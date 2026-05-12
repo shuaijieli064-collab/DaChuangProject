@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # FastAPI 后端
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/data:/app/data
+      - milvus_data:/app/data/milvus
+    depends_on:
+      - redis
+    networks:
+      - zhilian
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - zhilian
+
+  # Milvus Lite (通过 API 服务内置)
+  # 生产环境可替换为独立 Milvus 服务
+
+  # Vue3 前端（开发阶段使用 Vite 代理）
+  frontend:
+    build:
+      context: ./frontend-vue
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - zhilian
+
+volumes:
+  redis_data:
+  milvus_data:
+
+networks:
+  zhilian:
+    driver: bridge

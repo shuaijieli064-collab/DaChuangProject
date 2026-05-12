@@ -1,0 +1,19 @@
+# 智校通项目依赖和构建文件
+backend/__pycache__/
+backend/routes/__pycache__/
+backend/services/__pycache__/
+backend/.env
+*.pyc
+*.pyo
+*.pyd
+.Python
+__pycache__/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+node_modules/
+.DS_Store
+Thumbs.db

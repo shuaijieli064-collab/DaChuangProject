@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智链校园 — 高校AI助手</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@400;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ====== RESET & BASE ====== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #0a0e17;
+      --bg-surface: #0f1623;
+      --bg-elevated: #151d2e;
+      --bg-glass: rgba(15, 22, 35, 0.7);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-active: rgba(212, 168, 83, 0.4);
+      --text-primary: #e8e4dd;
+      --text-secondary: #8a8578;
+      --text-dim: #4a4740;
+      --gold: #d4a853;
+      --gold-light: #e8c97a;
+      --gold-dim: rgba(212, 168, 83, 0.12);
+      --gold-glow: rgba(212, 168, 83, 0.25);
+      --green: #4ade80;
+      --blue: #60a5fa;
+      --rose: #fb7185;
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --font-display: 'Outfit', 'Noto Serif SC', serif;
+      --font-body: 'Noto Sans SC', sans-serif;
+      --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ====== BACKGROUND NETWORK CANVAS ====== */
+    #networkCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      opacity: 0.35;
+    }
+
+    /* ====== AMBIENT GRADIENT ORBS ====== */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+      animation: orbFloat 20s ease-in-out infinite alternate;
+    }
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(212,168,83,0.12) 0%, transparent 70%);
+      top: -15%; right: -10%;
+    }
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(96,165,250,0.08) 0%, transparent 70%);
+      bottom: -10%; left: -5%;
+      animation-delay: -8s;
+    }
+    .orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(251,113,133,0.06) 0%, transparent 70%);
+      top: 40%; left: 30%;
+      animation-delay: -14s;
+    }
+
+    @keyframes orbFloat {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -20px) scale(1.1); }
+      100% { transform: translate(-20px, 15px) scale(0.95); }
+    }
+
+    /* ====== LAYOUT ====== */
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 64px 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ====== HEADER ====== */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      background: rgba(10, 14, 23, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-mark {
+      width: 36px; height: 36px;
+      position: relative;
+    }
+
+    .logo-mark svg {
+      width: 100%; height: 100%;
+    }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border-subtle);
+      margin: 0 0.5rem;
+    }
+
+    .logo-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ====== SIDEBAR ====== */
+    .sidebar {
+      background: rgba(10, 14, 23, 0.5);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border-subtle);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      overflow-y: auto;
+    }
+
+    .sidebar-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-dim);
+      padding: 0.75rem 0.75rem 0.5rem;
+      font-weight: 500;
+    }
+
+    .agent-card {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 0.85rem;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .agent-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--gold-dim), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .agent-card:hover {
+      border-color: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .agent-card:hover::before {
+      opacity: 0.5;
+    }
+
+    .agent-card.active {
+      border-color: var(--border-active);
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
+    .agent-card.active::before {
+      opacity: 1;
+    }
+
+    .agent-icon-wrap {
+      width: 38px; height: 38px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      transition: all 0.25s;
+    }
+
+    .agent-card.active .agent-icon-wrap {
+      background: var(--gold-dim);
+      border-color: var(--border-active);
+    }
+
+    .agent-info {
+      position: relative;
+      z-index: 1;
+    }
+
+    .agent-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .agent-desc {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* ====== NEW CHAT BUTTON ====== */
+    .new-chat-btn {
+      margin-top: 0.5rem;
+      padding: 0.7rem;
+      border: 1px dashed var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .new-chat-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--gold-dim);
+    }
+
+    /* ====== MAIN CONTENT ====== */
+    .main {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      overflow: hidden;
+    }
+
+    /* ====== MESSAGES ====== */
+    .messages {
+      padding: 2rem;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .messages::-webkit-scrollbar {
+      width: 4px;
+    }
+    .messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 4px;
+    }
+
+    /* ====== WELCOME SCREEN ====== */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      text-align: center;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .welcome-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--gold-dim);
+      border: 1px solid var(--border-active);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .welcome-icon::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px solid var(--border-active);
+      animation: ringPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes ringPulse {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0; transform: scale(1.15); }
+    }
+
+    .welcome h2 {
+      font-family: var(--font-display);
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--text-primary), var(--gold-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .welcome p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      max-width: 400px;
+      margin-bottom: 2rem;
+      line-height: 1.7;
+    }
+
+    /* ====== QUICK ACTION CARDS ====== */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .quick-card {
+      padding: 1rem 1.1rem;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      opacity: 0;
+      animation: cardReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .quick-card:nth-child(1) { animation-delay: 0.15s; }
+    .quick-card:nth-child(2) { animation-delay: 0.25s; }
+    .quick-card:nth-child(3) { animation-delay: 0.35s; }
+    .quick-card:nth-child(4) { animation-delay: 0.45s; }
+
+    @keyframes cardReveal {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .quick-card:hover {
+      border-color: var(--border-active);
+      background: var(--bg-elevated);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .quick-card-icon {
+      font-size: 1.4rem;
+      width: 40px; height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      background: var(--gold-dim);
+      flex-shrink: 0;
+    }
+
+    .quick-card-text {
+      font-size: 0.825rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .quick-card-text strong {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.15rem;
+      font-size: 0.85rem;
+    }
+
+    /* ====== MESSAGE BUBBLES ====== */
+    .message {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      animation: msgAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes msgAppear {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .msg-avatar-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .message.bot .msg-avatar-icon {
+      background: var(--gold-dim);
+      border: 1px solid var(--border-active);
+    }
+
+    .message.user .msg-avatar-icon {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .msg-bubble {
+      max-width: 70%;
+      padding: 0.85rem 1.1rem;
+      border-radius: var(--radius-lg);
+      font-size: 0.875rem;
+      line-height: 1.7;
+    }
+
+    .message.user .msg-bubble {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-bottom-right-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .message.bot .msg-bubble {
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-bubble p { margin: 0.4rem 0; }
+    .msg-bubble ul, .msg-bubble ol { padding-left: 1.25rem; margin: 0.4rem 0; }
+    .msg-bubble li { margin: 0.2rem 0; }
+    .msg-bubble strong { color: var(--gold-light); }
+    .msg-bubble code {
+      background: rgba(0,0,0,0.3);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+    }
+    .msg-bubble pre {
+      background: rgba(0,0,0,0.4);
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      margin: 0.75rem 0;
+    }
+    .msg-bubble pre code {
+      background: none;
+      padding: 0;
+    }
+    .msg-bubble blockquote {
+      border-left: 2px solid var(--gold);
+      padding-left: 1rem;
+      margin: 0.5rem 0;
+      color: var(--text-secondary);
+    }
+
+    /* ====== TYPING INDICATOR ====== */
+    .typing {
+      display: flex;
+      gap: 5px;
+      padding: 0.5rem 0;
+    }
+
+    .typing span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      animation: typingDot 1.4s ease-in-out infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingDot {
+      0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+      30% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    /* ====== INPUT BAR ====== */
+    .input-bar {
+      padding: 1rem 2rem 1.25rem;
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(10, 14, 23, 0.6);
+      backdrop-filter: blur(16px);
+    }
+
+    .input-inner {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .input-wrapper textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      line-height: 1.5;
+      max-height: 120px;
+    }
+
+    .input-wrapper textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .input-wrapper textarea:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px var(--gold-dim);
+    }
+
+    .send-btn {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: var(--gold);
+      color: var(--bg-deep);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      font-size: 1.1rem;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      background: var(--gold-light);
+      transform: scale(1.05);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .input-hint {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .input-hint kbd {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 0 4px;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+    }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+      .quick-grid {
+        grid-template-columns: 1fr;
+      }
+      .msg-bubble {
+        max-width: 85%;
+      }
+      .messages {
+        padding: 1rem;
+      }
+      .input-bar {
+        padding: 0.75rem 1rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background layers -->
+  <canvas id="networkCanvas"></canvas>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <div class="logo-mark">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="18" cy="18" r="16" stroke="url(#lg)" stroke-width="1.5" opacity="0.5"/>
+            <circle cx="10" cy="12" r="3" fill="#d4a853"/>
+            <circle cx="26" cy="12" r="3" fill="#60a5fa"/>
+            <circle cx="18" cy="26" r="3" fill="#4ade80"/>
+            <line x1="10" y1="12" x2="26" y2="12" stroke="rgba(212,168,83,0.3)" stroke-width="1"/>
+            <line x1="10" y1="12" x2="18" y2="26" stroke="rgba(212,168,83,0.3)" stroke-width="1"/>
+            <line x1="26" y1="12" x2="18" y2="26" stroke="rgba(212,168,83,0.3)" stroke-width="1"/>
+            <defs>
+              <linearGradient id="lg" x1="0" y1="0" x2="36" y2="36">
+                <stop offset="0%" stop-color="#d4a853" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.3"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="logo-text">智链校园</span>
+        <div class="logo-divider"></div>
+        <span class="logo-subtitle">Smart Campus AI</span>
+      </div>
+      <div class="header-status">
+        <div class="status-dot"></div>
+        <span>RAG + Multi-Agent 在线</span>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-label">智能体</div>
+
+      <div class="agent-card active" data-agent="affairs" onclick="switchAgent('affairs', this)">
+        <div class="agent-icon-wrap">🏫</div>
+        <div class="agent-info">
+          <div class="agent-name">校园事务</div>
+          <div class="agent-desc">流程查询 · 模板生成</div>
+        </div>
+      </div>
+
+      <div class="agent-card" data-agent="academic" onclick="switchAgent('academic', this)">
+        <div class="agent-icon-wrap">📚</div>
+        <div class="agent-info">
+          <div class="agent-name">学术辅助</div>
+          <div class="agent-desc">知识点 · 练习题 · 综述</div>
+        </div>
+      </div>
+
+      <div class="agent-card" data-agent="growth" onclick="switchAgent('growth', this)">
+        <div class="agent-icon-wrap">🎯</div>
+        <div class="agent-info">
+          <div class="agent-name">成长助手</div>
+          <div class="agent-desc">规划 · 简历 · 面试</div>
+        </div>
+      </div>
+
+      <button class="new-chat-btn" onclick="newChat()">
+        <span>＋</span> 新对话
+      </button>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="messages" id="messages">
+        <!-- Welcome screen (shown when no messages) -->
+        <div class="welcome" id="welcomeScreen">
+          <div class="welcome-icon">🔗</div>
+          <h2>智链校园</h2>
+          <p>基于 RAG 与多智能体协同的高校垂直领域全场景辅助平台。选择左侧智能体，或直接提问。</p>
+          <div class="quick-grid" id="quickGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="input-bar">
+        <div class="input-inner">
+          <div class="input-wrapper">
+            <textarea
+              id="chatInput"
+              rows="1"
+              placeholder="输入你的问题…"
+              onkeydown="inputKeydown(event)"
+              oninput="autoResize(this)"
+            ></textarea>
+          </div>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        <div class="input-hint">
+          <kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ====== NETWORK CANVAS ANIMATION ======
+    const canvas = document.getElementById('networkCanvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    let mouse = { x: -1000, y: -1000 };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initNodes();
+    }
+
+    function initNodes() {
+      const count = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
+      nodes = [];
+      for (let i = 0; i < count; i++) {
+        nodes.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          r: Math.random() * 1.5 + 0.5,
+        });
+      }
+    }
+
+    function drawNetwork() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update
+      for (const n of nodes) {
+        n.x += n.vx;
+        n.y += n.vy;
+
+        // Mouse repulsion
+        const dx = n.x - mouse.x;
+        const dy = n.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150) {
+          n.vx += dx * 0.0003;
+          n.vy += dy * 0.0003;
+        }
+
+        // Damping
+        n.vx *= 0.999;
+        n.vy *= 0.999;
+
+        // Wrap
+        if (n.x < -10) n.x = canvas.width + 10;
+        if (n.x > canvas.width + 10) n.x = -10;
+        if (n.y < -10) n.y = canvas.height + 10;
+        if (n.y > canvas.height + 10) n.y = -10;
+      }
+
+      // Connections
+      const maxDist = 120;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < maxDist) {
+            const alpha = (1 - dist / maxDist) * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.strokeStyle = `rgba(212, 168, 83, ${alpha * 0.4})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Nodes
+      for (const n of nodes) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(212, 168, 83, 0.6)';
+        ctx.fill();
+      }
+
+      requestAnimationFrame(drawNetwork);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    resizeCanvas();
+    drawNetwork();
+
+    // ====== APP STATE ======
+    let currentAgent = 'affairs';
+    let messages = [];
+    let isStreaming = false;
+
+    const quickItems = {
+      affairs: [
+        { icon: '🏥', title: '请假手续', text: '如何办理请假手续？请详细说明流程、材料和注意事项。' },
+        { icon: '🏆', title: '奖学金申请', text: '奖学金申请流程是什么？需要什么材料和条件？' },
+        { icon: '💰', title: '助学金', text: '助学金如何申请？需要什么证明材料？' },
+        { icon: '🪪', title: '证件补办', text: '学生证丢失了如何补办？需要什么材料？' },
+      ],
+      academic: [
+        { icon: '📖', title: '知识点提炼', text: '请帮我提炼以下课件的核心知识点：\n\n' },
+        { icon: '✏️', title: '生成练习题', text: '请根据以下内容生成练习题：\n\n' },
+        { icon: '📅', title: '复习计划', text: '请为我制定复习计划，课程是：' },
+        { icon: '📄', title: '文献综述', text: '请帮我构建以下主题的文献综述框架：' },
+      ],
+      growth: [
+        { icon: '🗺️', title: '学业规划', text: '我是软件工程专业的学生，请为我提供学业和职业规划建议。' },
+        { icon: '📄', title: '简历优化', text: '请帮我优化简历。我的简历内容如下：\n\n' },
+        { icon: '🎤', title: '面试训练', text: '请为前端开发岗位生成10道常见面试题。' },
+        { icon: '🧭', title: '校园导航', text: '请问图书馆怎么预约自习室？' },
+      ],
+    };
+
+    const agentNames = {
+      affairs: '校园事务',
+      academic: '学术辅助',
+      growth: '成长助手',
+    };
+
+    // ====== RENDER ======
+    function renderQuickGrid() {
+      const grid = document.getElementById('quickGrid');
+      const items = quickItems[currentAgent];
+      grid.innerHTML = items.map(item => `
+        <div class="quick-card" onclick="sendQuick('${item.text.replace(/'/g, "\\'")}')">
+          <div class="quick-card-icon">${item.icon}</div>
+          <div class="quick-card-text">
+            <strong>${item.title}</strong>
+            ${item.text.substring(0, 40)}${item.text.length > 40 ? '…' : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMessages() {
+      const container = document.getElementById('messages');
+      const welcome = document.getElementById('welcomeScreen');
+
+      if (messages.length === 0) {
+        welcome.style.display = 'flex';
+        // Remove all message elements
+        container.querySelectorAll('.message').forEach(el => el.remove());
+        renderQuickGrid();
+        return;
+      }
+
+      welcome.style.display = 'none';
+
+      // Re-render all messages
+      container.querySelectorAll('.message').forEach(el => el.remove());
+
+      for (const msg of messages) {
+        const div = document.createElement('div');
+        div.className = `message ${msg.role}`;
+
+        const avatarIcon = msg.role === 'bot' ? '🔗' : '👤';
+
+        div.innerHTML = `
+          <div class="msg-avatar-icon">${avatarIcon}</div>
+          <div class="msg-bubble">${formatContent(msg.content)}</div>
+        `;
+        container.appendChild(div);
+      }
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function formatContent(text) {
+      // Simple markdown-like formatting
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Headers
+        .replace(/^### (.+)$/gm, '<h3 style="font-size:0.95rem;font-weight:600;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2 style="font-size:1.05rem;font-weight:700;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1 style="font-size:1.15rem;font-weight:700;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h1>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Blockquote
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Unordered list
+        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+        // Newlines
+        .replace(/\n/g, '<br>');
+
+      // Wrap consecutive <li> in <ul>
+      html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, (match) => {
+        const cleaned = match.replace(/<br>/g, '');
+        return `<ul>${cleaned}</ul>`;
+      });
+
+      return html;
+    }
+
+    function showTyping() {
+      const container = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'message bot';
+      div.id = 'typingIndicator';
+      div.innerHTML = `
+        <div class="msg-avatar-icon">🔗</div>
+        <div class="msg-bubble">
+          <div class="typing"><span></span><span></span><span></span></div>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    // ====== ACTIONS ======
+    function switchAgent(agent, el) {
+      currentAgent = agent;
+      document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+
+      // Update input placeholder
+      const placeholders = {
+        affairs: '输入校园事务问题，如：请假流程、奖学金申请…',
+        academic: '输入课程内容、课件文字或知识点…',
+        growth: '如：学业规划建议、简历优化、面试训练…',
+      };
+      document.getElementById('chatInput').placeholder = placeholders[agent];
+
+      renderQuickGrid();
+    }
+
+    function newChat() {
+      messages = [];
+      renderMessages();
+    }
+
+    function sendQuick(text) {
+      document.getElementById('chatInput').value = text;
+      sendMessage();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || isStreaming) return;
+
+      input.value = '';
+      autoResize(input);
+      updateSendBtn();
+
+      messages.push({ role: 'user', content: text });
+      renderMessages();
+
+      isStreaming = true;
+      document.getElementById('sendBtn').disabled = true;
+      showTyping();
+
+      try {
+        // Try WebSocket streaming
+        await streamChat(text);
+      } catch (err) {
+        console.warn('WebSocket failed, falling back to HTTP:', err);
+        await httpChat(text);
+      }
+
+      hideTyping();
+      isStreaming = false;
+      updateSendBtn();
+    }
+
+    async function streamChat(message) {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(
+          `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat`
+        );
+
+        const timeout = setTimeout(() => {
+          ws.close();
+          reject(new Error('timeout'));
+        }, 10000);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ message, intent: currentAgent, history: [] }));
+        };
+
+        let aiContent = '';
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'chunk') {
+              aiContent += data.content;
+              updateBotMessage(aiContent);
+            } else if (data.type === 'done') {
+              clearTimeout(timeout);
+              ws.close();
+              messages.push({ role: 'bot', content: aiContent || data.content });
+              renderMessages();
+              resolve();
+            } else if (data.error) {
+              clearTimeout(timeout);
+              ws.close();
+              reject(new Error(data.error));
+            }
+          } catch {
+            // Plain text response
+            aiContent += event.data;
+            updateBotMessage(aiContent);
+          }
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('ws error'));
+        };
+
+        ws.onclose = () => {
+          clearTimeout(timeout);
+          if (aiContent) {
+            messages.push({ role: 'bot', content: aiContent });
+            renderMessages();
+          }
+          resolve();
+        };
+      });
+    }
+
+    async function httpChat(message) {
+      try {
+        const res = await fetch('/api/agent/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, intent: currentAgent }),
+        });
+        const data = await res.json();
+        hideTyping();
+        const result = data.result || '请求失败，请重试';
+        messages.push({ role: 'bot', content: result });
+        renderMessages();
+      } catch {
+        hideTyping();
+        messages.push({ role: 'bot', content: '网络错误，请稍后重试。' });
+        renderMessages();
+      }
+    }
+
+    function updateBotMessage(content) {
+      hideTyping();
+
+      // Find or create bot message element
+      let botEl = document.getElementById('streamingMessage');
+      if (!botEl) {
+        const container = document.getElementById('messages');
+        botEl = document.createElement('div');
+        botEl.className = 'message bot';
+        botEl.id = 'streamingMessage';
+        botEl.innerHTML = `
+          <div class="msg-avatar-icon">🔗</div>
+          <div class="msg-bubble"></div>
+        `;
+        container.appendChild(botEl);
+      }
+
+      const bubble = botEl.querySelector('.msg-bubble');
+      bubble.innerHTML = formatContent(content);
+
+      const container = document.getElementById('messages');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // ====== INPUT HELPERS ======
+    function inputKeydown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    function updateSendBtn() {
+      const input = document.getElementById('chatInput');
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = !input.value.trim() || isStreaming;
+    }
+
+    document.getElementById('chatInput').addEventListener('input', updateSendBtn);
+
+    // ====== INIT ======
+    renderQuickGrid();
+  </script>
+</body>
+</html>
