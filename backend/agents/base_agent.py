@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from .schemas import AgentMessage, AgentResult, AgentType, TaskStatus
 
@@ -15,8 +15,9 @@ class BaseAgent(ABC):
 
     agent_type: AgentType
 
-    def __init__(self, llm_fn=None, timeout: float = 30.0):
+    def __init__(self, llm_fn=None, llm_fn_stream=None, timeout: float = 30.0):
         self.llm_fn = llm_fn  # (messages) -> str
+        self.llm_fn_stream = llm_fn_stream  # (messages) -> AsyncGenerator[str, None]
         self.timeout = timeout
 
     def execute(self, message: AgentMessage) -> AgentResult:
@@ -75,3 +76,31 @@ class BaseAgent(ABC):
         if self.llm_fn:
             return self.llm_fn(messages)
         return "[LLM 未配置]"
+
+    async def _call_llm_stream(self, messages: list[dict]) -> AsyncGenerator[str, None]:
+        """流式调用 LLM，返回 async generator of tokens"""
+        if self.llm_fn_stream:
+            async for token in self.llm_fn_stream(messages):
+                yield token
+        else:
+            # Fallback: 非流式一次性返回
+            yield self._call_llm(messages)
+
+    async def execute_stream(self, message: AgentMessage) -> AsyncGenerator[str, None]:
+        """流式执行任务，逐个 token yield（子类可覆写）"""
+        try:
+            messages = self._build_messages_for_stream(message)
+            async for token in self._call_llm_stream(messages):
+                yield token
+        except Exception as e:
+            logger.exception("Agent %s 流式执行失败: %s", self.agent_type.value, message.task_id)
+            yield "处理出错，请稍后重试"
+
+    def _build_messages_for_stream(self, message: AgentMessage) -> list[dict]:
+        """默认消息构建（子类覆写以使用自定义 system prompt）"""
+        system_prompt = self._build_system_prompt("AI")
+        messages = [{"role": "system", "content": system_prompt}]
+        if message.history:
+            messages.extend(message.history[-10:])
+        messages.append({"role": "user", "content": message.content})
+        return messages

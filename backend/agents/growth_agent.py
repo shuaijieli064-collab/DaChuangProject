@@ -1,4 +1,5 @@
 """成长 Agent — 学业规划、简历优化、面试训练、校园导航"""
+from typing import AsyncGenerator
 from .base_agent import BaseAgent
 from .schemas import AgentMessage, AgentType
 
@@ -7,8 +8,16 @@ class GrowthAgent(BaseAgent):
     agent_type = AgentType.GROWTH
 
     def _handle(self, message: AgentMessage) -> str:
+        messages = self._build_messages(message)
+        return self._call_llm(messages)
+
+    async def execute_stream(self, message: AgentMessage) -> AsyncGenerator[str, None]:
+        messages = self._build_messages(message)
+        async for token in self._call_llm_stream(messages):
+            yield token
+
+    def _build_messages(self, message: AgentMessage) -> list[dict]:
         intent = message.intent or "general"
-        content = message.content
 
         prompt_map = {
             "career_plan": (
@@ -48,6 +57,5 @@ class GrowthAgent(BaseAgent):
         messages = [{"role": "system", "content": system_prompt}]
         if message.history:
             messages.extend(message.history[-5:])
-        messages.append({"role": "user", "content": content})
-
-        return self._call_llm(messages)
+        messages.append({"role": "user", "content": message.content})
+        return messages

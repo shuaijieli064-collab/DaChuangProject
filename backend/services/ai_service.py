@@ -1,6 +1,9 @@
 import json
 import os
 import sys
+from typing import AsyncGenerator
+
+import httpx
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -46,6 +49,59 @@ def chat_completion(messages, temperature=0.7, max_tokens=2000):
         return "[AI服务超时，请稍后重试]"
     except Exception as e:
         return f"[AI服务暂时不可用: {str(e)}]"
+
+
+async def chat_completion_stream(messages, temperature=0.7, max_tokens=2000) -> AsyncGenerator[str, None]:
+    """流式调用 AI 接口，逐 token 返回"""
+    if not AI_API_KEY:
+        yield _mock_response(messages)
+        return
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {AI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": AI_MODEL,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True
+        }
+
+        async with httpx.AsyncClient(timeout=AI_TIMEOUT_SECONDS) as client:
+            async with client.stream(
+                "POST",
+                f"{AI_API_BASE}/chat/completions",
+                headers=headers,
+                json=payload
+            ) as response:
+                if response.status_code != 200:
+                    error_text = await response.aread()
+                    yield f"[AI服务返回错误: {response.status_code} - {error_text.decode()}]"
+                    return
+
+                async for line in response.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+
+    except httpx.TimeoutException:
+        yield "[AI服务超时，请稍后重试]"
+    except Exception as e:
+        yield f"[AI服务暂时不可用: {str(e)}]"
 
 
 def _mock_response(messages):

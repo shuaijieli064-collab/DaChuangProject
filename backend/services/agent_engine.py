@@ -2,6 +2,7 @@
 import logging
 import time
 import uuid
+from typing import AsyncGenerator
 
 from agents.orchestrator import Orchestrator
 from agents.schemas import AgentMessage, AgentResult, AgentType, TaskStatus
@@ -18,10 +19,11 @@ class AgentEngine:
     2. 简单模式：路由 → 单 Agent 执行（默认）
     """
 
-    def __init__(self, llm_fn=None, use_langgraph: bool = False):
+    def __init__(self, llm_fn=None, llm_fn_stream=None, use_langgraph: bool = False):
         self.llm_fn = llm_fn
+        self.llm_fn_stream = llm_fn_stream
         self.use_langgraph = use_langgraph
-        self.orchestrator = Orchestrator(llm_fn=llm_fn)
+        self.orchestrator = Orchestrator(llm_fn=llm_fn, llm_fn_stream=llm_fn_stream)
         self._langgraph_app = None
 
         if use_langgraph:
@@ -72,6 +74,38 @@ class AgentEngine:
 
         # 简单模式：路由 → 执行
         return self._process_simple(content, history, task_id)
+
+    async def process_stream(
+        self,
+        content: str,
+        history: list[dict] | None = None,
+        intent: str | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """流式处理用户请求，逐个 token 返回"""
+        if intent:
+            try:
+                agent_type = AgentType(intent)
+            except ValueError:
+                agent_type = AgentType.AFFAIRS
+
+            message = AgentMessage(
+                task_id=str(uuid.uuid4()),
+                source=AgentType.ORCHESTRATOR,
+                target=agent_type,
+                intent=intent,
+                content=content,
+                history=history or [],
+            )
+            agent = self.orchestrator.agents.get(agent_type)
+            if agent:
+                async for token in agent.execute_stream(message):
+                    yield token
+                return
+
+        # 简单模式：路由 → 流式执行
+        _, stream = await self.orchestrator.execute_stream(content, history)
+        async for token in stream:
+            yield token
 
     def _process_simple(
         self, content: str, history: list[dict] | None, task_id: str

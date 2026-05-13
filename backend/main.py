@@ -21,7 +21,7 @@ from config import (
     MAX_HISTORY_MSG_LENGTH, MAX_HISTORY_TURNS, MAX_EXAM_COUNT,
     RAG_ENABLED, AI_API_KEY,
 )
-from services.ai_service import chat_completion
+from services.ai_service import chat_completion, chat_completion_stream
 from services.kb_service import search_knowledge, get_affair_info
 from services.agent_engine import AgentEngine
 from agents.schemas import AgentType
@@ -34,11 +34,16 @@ logger = logging.getLogger(__name__)
 
 # 初始化 Agent 引擎
 _llm_fn = None
+_llm_fn_stream = None
 if AI_API_KEY:
     def _llm_fn(messages: list[dict]) -> str:
         return chat_completion(messages)
 
-agent_engine = AgentEngine(llm_fn=_llm_fn, use_langgraph=False)
+    async def _llm_fn_stream(messages: list[dict]):
+        async for token in chat_completion_stream(messages):
+            yield token
+
+agent_engine = AgentEngine(llm_fn=_llm_fn, llm_fn_stream=_llm_fn_stream, use_langgraph=False)
 
 # FastAPI 应用
 app = FastAPI(
@@ -119,6 +124,44 @@ async def health():
 
 
 # ---- 学术辅助 API (兼容 1.0 路径) ----
+
+@app.post("/api/academic/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """上传文件并提取文本内容（支持 PDF/DOCX/TXT）"""
+    content = await file.read()
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if ext not in ("pdf", "docx", "doc", "txt", "md"):
+        raise HTTPException(400, "不支持的文件格式，请上传 PDF/DOCX/TXT 文件")
+
+    if len(content) > 5 * 1024 * 1024:  # 5MB limit
+        raise HTTPException(400, "文件大小超过 5MB 限制")
+
+    if ext in ("txt", "md"):
+        text = content.decode("utf-8", errors="ignore")
+    elif ext == "pdf":
+        try:
+            import PyPDF2
+            reader = PyPDF2.PdfReader(io.BytesIO(content))
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception:
+            text = content.decode("utf-8", errors="ignore")
+    elif ext in ("docx", "doc"):
+        try:
+            import docx
+            doc = docx.Document(io.BytesIO(content))
+            text = "\n".join(p.text for p in doc.paragraphs)
+        except Exception:
+            text = content.decode("utf-8", errors="ignore")
+    else:
+        text = content.decode("utf-8", errors="ignore")
+
+    if not text.strip():
+        raise HTTPException(400, "文件内容为空，请检查文件内容")
+
+    return {"text": text[:MAX_TEXT_LENGTH], "filename": filename, "chars": len(text)}
+
 
 @app.post("/api/academic/extract-knowledge")
 async def extract_knowledge(req: AcademicRequest):
@@ -437,27 +480,24 @@ async def websocket_chat(websocket: WebSocket):
 
             # 使用流式输出
             async def stream_response():
-                result = agent_engine.process(
+                full_content = ""
+                async for token in agent_engine.process_stream(
                     content=message[:MAX_QUERY_LENGTH],
                     history=history,
                     intent=intent or None,
-                )
-                # 逐字发送
-                answer = result.answer
-                chunk_size = 5
-                for i in range(0, len(answer), chunk_size):
+                ):
+                    full_content += token
                     await websocket.send_json({
                         "type": "chunk",
-                        "content": answer[i : i + chunk_size],
+                        "content": token,
                         "done": False,
                     })
-                    await asyncio_sleep(0.02)  # 打字机效果
                 await websocket.send_json({
                     "type": "done",
-                    "content": answer,
+                    "content": full_content,
                     "done": True,
-                    "agent_type": result.agent_type.value,
-                    "latency_ms": result.latency_ms,
+                    "agent_type": intent or "general",
+                    "latency_ms": 0,
                 })
 
             await stream_response()

@@ -9,6 +9,7 @@ class AgentType(str, Enum):
     ACADEMIC = "academic"
     AFFAIRS = "affairs"
     GROWTH = "growth"
+    GENERAL = "general"
     ORCHESTRATOR = "orchestrator"
 
 

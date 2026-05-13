@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>智链校园 — 高校AI助手</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@400;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
     /* ====== RESET & BASE ====== */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -646,25 +648,554 @@
       font-size: 0.65rem;
     }
 
+    /* ====== HAMBURGER ====== */
+    .hamburger {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 32px; height: 32px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .hamburger:hover {
+      background: var(--gold-dim);
+    }
+
+    /* ====== DRAWER BACKDROP ====== */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 99;
+    }
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ====== KATEX & CODE BLOCKS ====== */
+    .msg-bubble .katex { font-size: 1em; }
+    .msg-bubble .katex-display {
+      margin: 0.75rem 0;
+      overflow-x: auto;
+      padding: 0.5rem 0;
+    }
+    .msg-bubble pre {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .msg-bubble pre code {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    .msg-bubble code {
+      background: var(--bg-deep);
+      border-radius: 3px;
+      padding: 0.15em 0.35em;
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      color: var(--gold-light);
+    }
+    .msg-bubble pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    /* ====== MODAL / DIALOG ====== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 1rem;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 520px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .modal-header h3 {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+    .modal-header button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0 0.25rem;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-header button:hover {
+      color: var(--gold);
+    }
+    .modal-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .modal-footer {
+      padding: 1rem 1.5rem 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .form-group label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-input {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.75rem;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+      outline: none;
+      width: 100%;
+    }
+    .form-input:focus {
+      border-color: var(--gold);
+    }
+    .form-input::placeholder {
+      color: var(--text-dim);
+    }
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8578' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      padding-right: 2rem;
+    }
+    .form-file-drop {
+      border: 2px dashed var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-deep);
+      position: relative;
+    }
+    .form-file-drop:hover,
+    .form-file-drop.dragover {
+      border-color: var(--gold);
+      background: var(--gold-dim);
+    }
+    .form-file-drop > * {
+      pointer-events: none;
+    }
+    .form-file-drop p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin: 0.5rem 0 0;
+    }
+    .form-file-drop .drop-icon {
+      font-size: 1.5rem;
+      opacity: 0.6;
+    }
+    .form-file-drop input[type="file"] {
+      display: none;
+    }
+    .form-file-name {
+      font-size: 0.8rem;
+      color: var(--gold);
+      margin-top: 0.5rem;
+      word-break: break-all;
+    }
+    .form-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+    }
+    .form-divider::before,
+    .form-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+    .btn-modal-cancel {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 1.2rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-modal-cancel:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+    .btn-modal-submit {
+      background: var(--gold);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 1.5rem;
+      color: var(--bg-deep);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-modal-submit:hover {
+      background: var(--gold-light);
+    }
+    .btn-modal-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .modal-loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+    }
+    .modal-loading .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border-subtle);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* ====== RESPONSIVE ====== */
+
+    /* Tablet: keep sidebar, just shrink */
     @media (max-width: 900px) {
       .app {
-        grid-template-columns: 1fr;
+        grid-template-columns: 220px 1fr;
+      }
+      .header {
+        padding: 0 1rem;
       }
       .sidebar {
-        display: none;
+        padding: 1rem 0.75rem;
+      }
+      .agent-card {
+        padding: 0.7rem 0.7rem;
+        gap: 0.5rem;
+      }
+      .agent-icon-wrap {
+        width: 32px; height: 32px;
+        font-size: 1rem;
+      }
+      .agent-name {
+        font-size: 0.8rem;
+      }
+      .agent-desc {
+        font-size: 0.65rem;
+      }
+      .sidebar-label {
+        padding: 0.5rem 0.5rem 0.35rem;
       }
       .quick-grid {
         grid-template-columns: 1fr;
       }
-      .msg-bubble {
-        max-width: 85%;
-      }
       .messages {
         padding: 1rem;
       }
+      .msg-bubble {
+        max-width: 90%;
+      }
       .input-bar {
+        padding: 0.75rem 1rem 0.85rem;
+      }
+      .logo-subtitle {
+        display: none;
+      }
+      .logo-divider {
+        display: none;
+      }
+    }
+
+    /* Phone: drawer mode */
+    @media (max-width: 600px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 48px 1fr;
+        height: 100dvh;
+        overflow: hidden;
+      }
+      .main {
+        display: flex !important;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .main .messages {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+        padding: 0.75rem;
+      }
+      .main .input-bar {
+        flex-shrink: 0;
+        padding: 0.45rem 0.75rem 0.6rem;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--bg-deep);
+      }
+      .header {
+        padding: 0 0.6rem;
+        height: 48px;
+        min-height: 48px;
+      }
+      .hamburger {
+        display: flex;
+        margin-right: 0.5rem;
+      }
+      .logo-mark {
+        width: 26px; height: 26px;
+      }
+      .logo-text {
+        font-size: 0.9rem;
+      }
+      .header-status {
+        font-size: 0.6rem;
+      }
+      .status-dot {
+        width: 6px; height: 6px;
+      }
+
+      /* Sidebar becomes a drawer */
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 48px;
+        bottom: 0;
+        width: 260px;
+        max-width: 80vw;
+        background: var(--bg-deep);
+        border-right: 1px solid var(--border-subtle);
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 100;
+        overflow-y: auto;
+        padding: 1rem;
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .sidebar-label {
+        font-size: 0.65rem;
+        padding: 0.5rem 0.5rem 0.3rem;
+      }
+      .agent-card {
+        padding: 0.7rem 0.7rem;
+        gap: 0.5rem;
+        border-radius: var(--radius-md);
+      }
+      .agent-icon-wrap {
+        width: 34px; height: 34px;
+        font-size: 1rem;
+        border-radius: var(--radius-sm);
+      }
+      .agent-name {
+        font-size: 0.8rem;
+      }
+      .agent-desc {
+        font-size: 0.65rem;
+      }
+      .new-chat-btn {
+        padding: 0.6rem;
+        font-size: 0.75rem;
+        border-radius: var(--radius-md);
+        margin-top: 0.5rem;
+      }
+
+      .welcome {
+        padding: 1.5rem 1rem;
+        justify-content: flex-start;
+      }
+      .welcome-icon {
+        width: 48px; height: 48px;
+        font-size: 1.2rem;
+        margin-bottom: 0.75rem;
+      }
+      .welcome h2 {
+        font-size: 1.15rem;
+        margin-bottom: 0.25rem;
+      }
+      .welcome p {
+        font-size: 0.75rem;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+      }
+
+      .quick-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        max-width: 100%;
+      }
+      .quick-card {
+        padding: 0.6rem 0.7rem;
+        gap: 0.5rem;
+      }
+      .quick-card-icon {
+        width: 30px; height: 30px;
+        font-size: 0.95rem;
+      }
+      .quick-card-text {
+        font-size: 0.68rem;
+      }
+      .quick-card-text strong {
+        font-size: 0.75rem;
+        margin-bottom: 0;
+      }
+
+      .messages {
+        padding: 0.75rem;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+      }
+      .message {
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .msg-avatar-icon {
+        width: 28px; height: 28px;
+        font-size: 0.75rem;
+      }
+      .msg-bubble {
+        max-width: 90%;
+        padding: 0.65rem 0.8rem;
+        font-size: 0.78rem;
+        line-height: 1.6;
+      }
+
+      .input-bar {
+        padding: 0.45rem 0.75rem 0.6rem;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--bg-deep);
+        position: relative;
+        z-index: 10;
+      }
+      .input-inner {
+        gap: 0.5rem;
+        max-width: 100%;
+      }
+      .input-wrapper {
+        flex: 1;
+        min-width: 0;
+      }
+      .input-wrapper textarea {
+        padding: 0.6rem 0.7rem;
+        font-size: 0.82rem;
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        min-height: 40px;
+        width: 100%;
+        display: block;
+      }
+      .send-btn {
+        width: 36px; height: 36px;
+        border-radius: var(--radius-sm);
+      }
+      .input-hint {
+        display: none;
+      }
+
+      .msg-bubble pre {
+        padding: 0.4rem;
+        font-size: 0.7rem;
+      }
+
+      /* Mobile modal */
+      .modal {
+        max-width: 95vw;
+        max-height: 90vh;
+        border-radius: var(--radius-md);
+      }
+      .modal-body {
+        padding: 1rem;
+      }
+      .modal-footer {
         padding: 0.75rem 1rem 1rem;
+      }
+      .form-input,
+      .form-textarea,
+      .form-select {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.6rem;
       }
     }
   </style>
@@ -680,6 +1211,9 @@
     <!-- Header -->
     <header class="header">
       <div class="logo-group">
+        <button class="hamburger" onclick="toggleDrawer()" aria-label="菜单">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <div class="logo-mark">
           <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="18" cy="18" r="16" stroke="url(#lg)" stroke-width="1.5" opacity="0.5"/>
@@ -707,6 +1241,9 @@
       </div>
     </header>
 
+    <!-- Drawer backdrop (mobile) -->
+    <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-label">智能体</div>
@@ -732,6 +1269,14 @@
         <div class="agent-info">
           <div class="agent-name">成长助手</div>
           <div class="agent-desc">规划 · 简历 · 面试</div>
+        </div>
+      </div>
+
+      <div class="agent-card" data-agent="general" onclick="switchAgent('general', this)">
+        <div class="agent-icon-wrap">💬</div>
+        <div class="agent-info">
+          <div class="agent-name">通用对话</div>
+          <div class="agent-desc">聊天 · 问答 · 创作</div>
         </div>
       </div>
 
@@ -778,6 +1323,18 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContainer">
+      <div class="modal-header">
+        <h3 id="modalTitle"></h3>
+        <button onclick="closeModal()" aria-label="关闭">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
   </div>
 
   <script>
@@ -875,7 +1432,7 @@
     drawNetwork();
 
     // ====== APP STATE ======
-    let currentAgent = 'affairs';
+    let currentAgent = 'general';
     let messages = [];
     let isStreaming = false;
 
@@ -887,16 +1444,22 @@
         { icon: '🪪', title: '证件补办', text: '学生证丢失了如何补办？需要什么材料？' },
       ],
       academic: [
-        { icon: '📖', title: '知识点提炼', text: '请帮我提炼以下课件的核心知识点：\n\n' },
-        { icon: '✏️', title: '生成练习题', text: '请根据以下内容生成练习题：\n\n' },
-        { icon: '📅', title: '复习计划', text: '请为我制定复习计划，课程是：' },
-        { icon: '📄', title: '文献综述', text: '请帮我构建以下主题的文献综述框架：' },
+        { icon: '📖', title: '知识点提炼', featureKey: 'extract-knowledge' },
+        { icon: '✏️', title: '生成练习题', featureKey: 'generate-questions' },
+        { icon: '📅', title: '复习计划', featureKey: 'study-plan' },
+        { icon: '📄', title: '文献综述', featureKey: 'literature-review' },
       ],
       growth: [
-        { icon: '🗺️', title: '学业规划', text: '我是软件工程专业的学生，请为我提供学业和职业规划建议。' },
-        { icon: '📄', title: '简历优化', text: '请帮我优化简历。我的简历内容如下：\n\n' },
-        { icon: '🎤', title: '面试训练', text: '请为前端开发岗位生成10道常见面试题。' },
-        { icon: '🧭', title: '校园导航', text: '请问图书馆怎么预约自习室？' },
+        { icon: '🗺️', title: '学业规划', featureKey: 'career-plan' },
+        { icon: '📄', title: '简历优化', featureKey: 'resume-optimize' },
+        { icon: '🎤', title: '面试训练', featureKey: 'interview-practice' },
+        { icon: '🧭', title: '校园导航', featureKey: 'campus-nav' },
+      ],
+      general: [
+        { icon: '👋', title: '打个招呼', text: '你好！请简单介绍一下你自己。' },
+        { icon: '❓', title: '知识问答', text: '请解释一下量子纠缠是什么？' },
+        { icon: '✍️', title: '创意写作', text: '请帮我写一首关于春天的短诗。' },
+        { icon: '💻', title: '帮我写代码', text: '请帮我用 Python 写一个快速排序算法，并解释原理。' },
       ],
     };
 
@@ -904,21 +1467,548 @@
       affairs: '校园事务',
       academic: '学术辅助',
       growth: '成长助手',
+      general: '通用对话',
     };
+
+    // ====== FEATURE CONFIGURATIONS ======
+    const featureConfigs = {
+      'extract-knowledge': {
+        title: '📖 知识点提炼',
+        fields: [
+          { name: 'file', type: 'file', label: '上传课件/教材', accept: '.pdf,.docx,.doc,.txt,.md', placeholder: '支持 PDF、DOCX、TXT 格式' },
+          { type: 'divider', text: '或直接粘贴文本' },
+          { name: 'text', type: 'textarea', label: '内容', placeholder: '粘贴课件或教材内容...' },
+        ],
+        submit: submitExtractKnowledge,
+      },
+      'generate-questions': {
+        title: '✏️ 生成练习题',
+        fields: [
+          { name: 'content', type: 'textarea', label: '知识点内容', placeholder: '请输入知识点或课程内容...', rows: 5 },
+          { name: 'count', type: 'select', label: '题目数量', options: [
+            { value: '3', label: '3 道' },
+            { value: '5', label: '5 道（默认）' },
+            { value: '10', label: '10 道' },
+            { value: '15', label: '15 道' },
+            { value: '20', label: '20 道' },
+          ]},
+          { name: 'qtype', type: 'select', label: '题型', options: [
+            { value: 'mixed', label: '混合题型' },
+            { value: 'single', label: '单选题' },
+            { value: 'multiple', label: '多选题' },
+            { value: 'short', label: '简答题' },
+          ]},
+        ],
+        submit: submitGenerateQuestions,
+      },
+      'study-plan': {
+        title: '📅 复习计划',
+        fields: [
+          { name: 'subject', type: 'text', label: '课程名称', placeholder: '如：高等数学、数据结构...' },
+          { name: 'exam_date', type: 'date', label: '考试日期', placeholder: '如：2026-06-15' },
+          { name: 'weak_points', type: 'textarea', label: '薄弱知识点（可选）', placeholder: '如：树的遍历、动态规划...' },
+          { name: 'hours', type: 'number', label: '每日可用学时（小时）', placeholder: '2', value: '2' },
+        ],
+        submit: submitStudyPlan,
+      },
+      'literature-review': {
+        title: '📄 文献综述',
+        fields: [
+          { name: 'topic', type: 'text', label: '研究主题', placeholder: '如：基于深度学习的文本分类...' },
+          { name: 'field', type: 'text', label: '研究领域（可选）', placeholder: '如：计算机科学、教育学...' },
+        ],
+        submit: submitLiteratureReview,
+      },
+      'career-plan': {
+        title: '🗺️ 学业规划',
+        fields: [
+          { name: 'major', type: 'text', label: '专业', placeholder: '如：软件工程、计算机科学与技术...' },
+          { name: 'grade', type: 'select', label: '年级', options: [
+            { value: '', label: '请选择' },
+            { value: '大一', label: '大一' },
+            { value: '大二', label: '大二' },
+            { value: '大三', label: '大三' },
+            { value: '大四', label: '大四' },
+            { value: '研究生', label: '研究生' },
+          ]},
+          { name: 'interests', type: 'textarea', label: '兴趣方向（可选）', placeholder: '如：前端开发、AI、数据分析...' },
+          { name: 'goals', type: 'textarea', label: '目标/期望（可选）', placeholder: '如：考研、出国、就业...' },
+        ],
+        submit: submitCareerPlan,
+      },
+      'resume-optimize': {
+        title: '📄 简历优化',
+        fields: [
+          { name: 'resume', type: 'textarea', label: '简历内容', placeholder: '粘贴你的简历内容...', rows: 6 },
+          { name: 'position', type: 'text', label: '目标岗位（可选）', placeholder: '如：前端开发工程师' },
+          { name: 'industry', type: 'text', label: '目标行业（可选）', placeholder: '如：互联网、金融...' },
+        ],
+        submit: submitResumeOptimize,
+      },
+      'interview-practice': {
+        title: '🎤 面试训练',
+        fields: [
+          { name: 'mode', type: 'select', label: '模式', options: [
+            { value: 'generate', label: '生成面试题' },
+            { value: 'feedback', label: '点评我的回答' },
+          ]},
+          { name: 'position', type: 'text', label: '目标岗位', placeholder: '如：Java 后端开发、产品经理...' },
+          { name: 'question', type: 'textarea', label: '面试题目', placeholder: '输入面试题目（点评模式需要）...' },
+          { name: 'answer', type: 'textarea', label: '你的回答', placeholder: '输入你的回答（点评模式需要）...' },
+        ],
+        submit: submitInterviewPractice,
+      },
+      'campus-nav': {
+        title: '🧭 校园导航',
+        fields: [
+          { name: 'query', type: 'textarea', label: '问题', placeholder: '如：图书馆怎么预约自习室？食堂营业时间？...', rows: 3 },
+        ],
+        submit: submitCampusNav,
+      },
+    };
+
+    // ====== MODAL FUNCTIONS ======
+    function openModal(featureKey) {
+      const config = featureConfigs[featureKey];
+      if (!config) return;
+
+      const overlay = document.getElementById('modalOverlay');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      const footer = document.getElementById('modalFooter');
+
+      title.textContent = config.title;
+      body.innerHTML = renderFormHTML(config.fields);
+      footer.innerHTML = `
+        <button class="btn-modal-cancel" onclick="closeModal()">取消</button>
+        <button class="btn-modal-submit" onclick="submitFeature('${featureKey}')">提交</button>
+      `;
+
+      overlay.classList.add('open');
+      // Focus first input
+      const firstInput = body.querySelector('input, textarea, select');
+      if (firstInput) setTimeout(() => firstInput.focus(), 100);
+
+      // Setup file input handler — direct event listeners on fresh references
+      const fileDrop = body.querySelector('.form-file-drop');
+      if (fileDrop) {
+        const fileInput = fileDrop.querySelector('input[type="file"]');
+        const fileNameDiv = fileDrop.closest('.form-group').querySelector('.form-file-name');
+
+        // Clear any existing listeners by using event attributes (not addEventListener)
+        fileDrop.onclick = function() { fileInput.click(); };
+        fileDrop.ondragover = function(e) { e.preventDefault(); fileDrop.classList.add('dragover'); };
+        fileDrop.ondragleave = function() { fileDrop.classList.remove('dragover'); };
+        fileDrop.ondrop = function(e) {
+          e.preventDefault();
+          fileDrop.classList.remove('dragover');
+          if (e.dataTransfer.files.length > 0) {
+            // Use DataTransfer to work around read-only files property
+            const dt = new DataTransfer();
+            dt.items.add(e.dataTransfer.files[0]);
+            fileInput.files = dt.files;
+            fileNameDiv.textContent = e.dataTransfer.files[0].name;
+          }
+        };
+        fileInput.onchange = function() {
+          if (fileInput.files.length > 0) {
+            fileNameDiv.textContent = fileInput.files[0].name;
+          }
+        };
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function renderFormHTML(fields) {
+      return fields.map(f => {
+        if (f.type === 'divider') {
+          return `<div class="form-divider">${f.text || ''}</div>`;
+        }
+        if (f.type === 'file') {
+          return `
+            <div class="form-group">
+              <label>${f.label}</label>
+              <div class="form-file-drop">
+                <div class="drop-icon">📁</div>
+                <div>点击或拖拽文件到此区域</div>
+                <p>${f.placeholder || ''}</p>
+                <input type="file" name="${f.name}" accept="${f.accept || ''}">
+              </div>
+              <div class="form-file-name"></div>
+            </div>
+          `;
+        }
+        if (f.type === 'select') {
+          const opts = f.options.map(o => `<option value="${o.value}" ${f.value === o.value ? 'selected' : ''}>${o.label}</option>`).join('');
+          return `
+            <div class="form-group">
+              <label>${f.label}</label>
+              <select class="form-input form-select" name="${f.name}">${opts}</select>
+            </div>
+          `;
+        }
+        if (f.type === 'textarea') {
+          return `
+            <div class="form-group">
+              <label>${f.label}</label>
+              <textarea class="form-input form-textarea" name="${f.name}" placeholder="${f.placeholder || ''}" rows="${f.rows || 3}">${f.value || ''}</textarea>
+            </div>
+          `;
+        }
+        if (f.type === 'date') {
+          return `
+            <div class="form-group">
+              <label>${f.label}</label>
+              <input class="form-input" type="date" name="${f.name}" value="${f.value || ''}">
+            </div>
+          `;
+        }
+        // default: text/number
+        return `
+          <div class="form-group">
+            <label>${f.label}</label>
+            <input class="form-input" type="${f.type || 'text'}" name="${f.name}" placeholder="${f.placeholder || ''}" value="${f.value || ''}">
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getFormData(featureKey) {
+      const body = document.getElementById('modalBody');
+      const data = {};
+      body.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.type === 'file') return;
+        data[el.name] = el.value.trim();
+      });
+      return data;
+    }
+
+    function getFileInput() {
+      const body = document.getElementById('modalBody');
+      return body.querySelector('input[type="file"]');
+    }
+
+    async function submitFeature(featureKey) {
+      const config = featureConfigs[featureKey];
+      if (!config) return;
+
+      const submitBtn = document.querySelector('.btn-modal-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '处理中...';
+
+      try {
+        await config.submit();
+        closeModal();
+      } catch (err) {
+        alert('提交失败：' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交';
+      }
+    }
+
+    // ====== FEATURE SUBMISSION HANDLERS ======
+
+    async function submitExtractKnowledge() {
+      const data = getFormData('extract-knowledge');
+      const fileInput = getFileInput();
+
+      if (!fileInput?.files[0] && !data.text) {
+        throw new Error('请上传文件或输入文本');
+      }
+
+      let fileContent = '';
+
+      if (fileInput?.files[0]) {
+        // Step 1: Upload file to get text content
+        messages.push({ role: 'user', content: `📎 上传文件：${fileInput.files[0].name}` });
+        renderMessages();
+        showTyping();
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const uploadRes = await fetch('/api/academic/upload-file', {
+          method: 'POST',
+          body: formData,
+        });
+        let uploadResult;
+        try {
+          uploadResult = await uploadRes.json();
+        } catch {
+          hideTyping();
+          messages.push({ role: 'bot', content: '❌ 文件上传失败' });
+          renderMessages();
+          return;
+        }
+        if (!uploadRes.ok) {
+          hideTyping();
+          messages.push({ role: 'bot', content: `❌ ${uploadResult.detail || uploadResult.error || '文件上传失败'}` });
+          renderMessages();
+          return;
+        }
+        fileContent = uploadResult.text;
+        if (data.text) fileContent += '\n\n' + data.text;
+      }
+
+      // Step 2: Extract knowledge from content
+      const content = fileContent || data.text;
+      if (fileContent) {
+        // Update user message
+        const userMsgs = document.querySelectorAll('#messages .message.user');
+        if (userMsgs.length > 0) {
+          userMsgs[userMsgs.length - 1].querySelector('.msg-bubble').textContent = `📎 上传文件：${fileInput.files[0].name}` + (data.text ? ' + 补充文本' : '');
+        }
+      } else {
+        messages.push({ role: 'user', content: `📝 提炼以下内容的知识点：\n\n${content.substring(0, 100)}...` });
+        renderMessages();
+        showTyping();
+      }
+
+      const res = await fetch('/api/academic/extract-knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      let result;
+      try {
+        result = await res.json();
+      } catch {
+        hideTyping();
+        messages.push({ role: 'bot', content: '❌ 服务器返回了无效响应' });
+        renderMessages();
+        return;
+      }
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        console.error('Extract knowledge error:', result);
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitGenerateQuestions() {
+      const data = getFormData('generate-questions');
+      if (!data.content) throw new Error('请填写知识点内容');
+
+      messages.push({ role: 'user', content: `请根据以下内容生成 ${data.count} 道${
+        { single: '单选题', multiple: '多选题', short: '简答题', mixed: '混合题型' }[data.qtype] || '混合题型'
+      }：\n\n${data.content.substring(0, 200)}...` });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/academic/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: data.content, count: parseInt(data.count) || 5, type: data.qtype }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitStudyPlan() {
+      const data = getFormData('study-plan');
+      if (!data.subject) throw new Error('请填写课程名称');
+
+      messages.push({ role: 'user', content: `请为我制定【${data.subject}】的复习计划${data.exam_date ? `，考试日期：${data.exam_date}` : ''}` });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/academic/study-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: data.subject,
+          exam_date: data.exam_date,
+          weak_points: data.weak_points,
+          available_hours: parseFloat(data.hours) || 2,
+        }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitLiteratureReview() {
+      const data = getFormData('literature-review');
+      if (!data.topic) throw new Error('请填写研究主题');
+
+      messages.push({ role: 'user', content: `请帮我构建以下主题的文献综述框架：\n\n主题：${data.topic}${data.field ? `\n领域：${data.field}` : ''}` });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/academic/literature-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: data.topic, field: data.field }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitCareerPlan() {
+      const data = getFormData('career-plan');
+      if (!data.major) throw new Error('请填写专业');
+
+      messages.push({ role: 'user', content: `我是${data.major}${data.grade ? data.grade : ''}的学生${data.interests ? `，兴趣方向：${data.interests}` : ''}，请为我提供学业和职业规划建议。` });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/growth/career-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ major: data.major, grade: data.grade, interests: data.interests, goals: data.goals }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitResumeOptimize() {
+      const data = getFormData('resume-optimize');
+      if (!data.resume) throw new Error('请填写简历内容');
+
+      messages.push({ role: 'user', content: `请帮我优化简历${data.position ? `，目标岗位：${data.position}` : ''}...\n\n简历内容：\n${data.resume.substring(0, 200)}...` });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/growth/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume: data.resume, position: data.position, industry: data.industry }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    async function submitInterviewPractice() {
+      const data = getFormData('interview-practice');
+      if (data.mode === 'generate') {
+        if (!data.position) throw new Error('请填写目标岗位');
+        messages.push({ role: 'user', content: `请为【${data.position}】岗位生成10道常见面试题。` });
+        renderMessages();
+        showTyping();
+
+        const res = await fetch('/api/growth/interview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: data.position, mode: 'generate' }),
+        });
+        const result = await res.json();
+        hideTyping();
+        if (res.ok && result.result) {
+          messages.push({ role: 'bot', content: result.result });
+        } else {
+          messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+        }
+      } else {
+        if (!data.question || !data.answer) throw new Error('请填写面试题目和你的回答');
+        messages.push({ role: 'user', content: `面试题目：${data.question}\n\n目标岗位：${data.position || '未指定'}\n\n我的回答：${data.answer.substring(0, 300)}...` });
+        renderMessages();
+        showTyping();
+
+        const res = await fetch('/api/growth/interview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: data.position, question: data.question, answer: data.answer, mode: 'feedback' }),
+        });
+        const result = await res.json();
+        hideTyping();
+        if (res.ok && result.result) {
+          messages.push({ role: 'bot', content: result.result });
+        } else {
+          messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+        }
+      }
+      renderMessages();
+    }
+
+    async function submitCampusNav() {
+      const data = getFormData('campus-nav');
+      if (!data.query) throw new Error('请输入问题');
+
+      messages.push({ role: 'user', content: data.query });
+      renderMessages();
+      showTyping();
+
+      const res = await fetch('/api/growth/campus-nav', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: data.query }),
+      });
+      const result = await res.json();
+      hideTyping();
+      if (res.ok && result.result) {
+        messages.push({ role: 'bot', content: result.result });
+      } else {
+        messages.push({ role: 'bot', content: `❌ ${result.detail || result.error || '请求失败'}` });
+      }
+      renderMessages();
+    }
+
+    // ESC key to close modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
 
     // ====== RENDER ======
     function renderQuickGrid() {
       const grid = document.getElementById('quickGrid');
       const items = quickItems[currentAgent];
-      grid.innerHTML = items.map(item => `
-        <div class="quick-card" onclick="sendQuick('${item.text.replace(/'/g, "\\'")}')">
-          <div class="quick-card-icon">${item.icon}</div>
-          <div class="quick-card-text">
-            <strong>${item.title}</strong>
-            ${item.text.substring(0, 40)}${item.text.length > 40 ? '…' : ''}
+      grid.innerHTML = items.map(item => {
+        if (item.featureKey) {
+          return `
+            <div class="quick-card" onclick="openModal('${item.featureKey}')">
+              <div class="quick-card-icon">${item.icon}</div>
+              <div class="quick-card-text">
+                <strong>${item.title}</strong>
+                点击填写参数
+              </div>
+            </div>
+          `;
+        }
+        return `
+          <div class="quick-card" onclick="sendQuick('${item.text.replace(/'/g, "\\'")}')">
+            <div class="quick-card-icon">${item.icon}</div>
+            <div class="quick-card-text">
+              <strong>${item.title}</strong>
+              ${item.text.substring(0, 40)}${item.text.length > 40 ? '…' : ''}
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function renderMessages() {
@@ -955,31 +2045,82 @@
     }
 
     function formatContent(text) {
-      // Simple markdown-like formatting
+      const placeholders = [];
+      let phIdx = 0;
+
+      const makePlaceholder = (type, content) => {
+        const ph = `%%PH_${type}_${phIdx++}%%`;
+        placeholders.push({ type, content, ph });
+        return ph;
+      };
+
+      const renderMath = (content, displayMode) => {
+        try {
+          if (typeof katex !== 'undefined') {
+            return katex.renderToString(content, { displayMode, throwOnError: false });
+          }
+        } catch {}
+        return displayMode ? `$$${content}$$` : `$${content}$`;
+      };
+
+      // Step 1: Protect fenced code blocks
+      text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        return makePlaceholder('code', { lang, code });
+      });
+
+      // Step 2: Protect display math $$...$$ and \[...\]
+      text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+        return makePlaceholder('displayMath', math);
+      });
+      text = text.replace(/\\\[(.*?)\\\]/gs, (_, math) => {
+        return makePlaceholder('displayMath', math);
+      });
+
+      // Step 3: Protect inline math \(...\) and $...$
+      text = text.replace(/\\\((.*?)\\\)/g, (_, math) => {
+        return makePlaceholder('inlineMath', math);
+      });
+      // Dollar-sign inline math: match single-line content between unescaped $
+      text = text.replace(/(?<!\$|\\)\$(?!\$)([^\$\n]+?)(?<!\$)\$(?!\$)/g, (_, math) => {
+        return makePlaceholder('inlineMath', math);
+      });
+
+      // Step 4: HTML-escape remaining text
       let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        // Headers
+        .replace(/>/g, '&gt;');
+
+      // Step 5: Markdown-like formatting
+      html = html
         .replace(/^### (.+)$/gm, '<h3 style="font-size:0.95rem;font-weight:600;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h3>')
         .replace(/^## (.+)$/gm, '<h2 style="font-size:1.05rem;font-weight:700;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h2>')
         .replace(/^# (.+)$/gm, '<h1 style="font-size:1.15rem;font-weight:700;margin:0.75rem 0 0.4rem;color:var(--gold-light)">$1</h1>')
-        // Bold
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // Inline code
         .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Blockquote
         .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-        // Unordered list
         .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-        // Newlines
         .replace(/\n/g, '<br>');
 
       // Wrap consecutive <li> in <ul>
       html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, (match) => {
-        const cleaned = match.replace(/<br>/g, '');
-        return `<ul>${cleaned}</ul>`;
+        return `<ul>${match.replace(/<br>/g, '')}</ul>`;
       });
+
+      // Step 6: Restore placeholders
+      for (const item of placeholders) {
+        let rendered;
+        if (item.type === 'code') {
+          const langLabel = item.content.lang ? `<div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:0.25rem">${item.content.lang}</div>` : '';
+          const escaped = item.content.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          rendered = `<pre>${langLabel}<code>${escaped}</code></pre>`;
+        } else if (item.type === 'displayMath') {
+          rendered = renderMath(item.content, true);
+        } else {
+          rendered = renderMath(item.content, false);
+        }
+        html = html.split(item.ph).join(rendered);
+      }
 
       return html;
     }
@@ -1005,19 +2146,36 @@
     }
 
     // ====== ACTIONS ======
+    function toggleDrawer() {
+      document.querySelector('.sidebar').classList.toggle('open');
+      document.querySelector('.drawer-backdrop').classList.toggle('open');
+    }
+    function closeDrawer() {
+      document.querySelector('.sidebar').classList.remove('open');
+      document.querySelector('.drawer-backdrop').classList.remove('open');
+    }
+
     function switchAgent(agent, el) {
       currentAgent = agent;
+
+      // Update sidebar cards
       document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
+      if (el) {
+        el.classList.add('active');
+      } else {
+        document.querySelectorAll(`.agent-card[data-agent="${agent}"]`).forEach(c => c.classList.add('active'));
+      }
 
       // Update input placeholder
       const placeholders = {
         affairs: '输入校园事务问题，如：请假流程、奖学金申请…',
         academic: '输入课程内容、课件文字或知识点…',
         growth: '如：学业规划建议、简历优化、面试训练…',
+        general: '有什么想聊的？随便问…',
       };
       document.getElementById('chatInput').placeholder = placeholders[agent];
 
+      closeDrawer();
       renderQuickGrid();
     }
 
@@ -1071,6 +2229,8 @@
           reject(new Error('timeout'));
         }, 10000);
 
+        let resolved = false;
+
         ws.onopen = () => {
           ws.send(JSON.stringify({ message, intent: currentAgent, history: [] }));
         };
@@ -1086,8 +2246,11 @@
             } else if (data.type === 'done') {
               clearTimeout(timeout);
               ws.close();
-              messages.push({ role: 'bot', content: aiContent || data.content });
-              renderMessages();
+              if (!resolved) {
+                resolved = true;
+                messages.push({ role: 'bot', content: aiContent || data.content });
+                renderMessages();
+              }
               resolve();
             } else if (data.error) {
               clearTimeout(timeout);
@@ -1108,7 +2271,8 @@
 
         ws.onclose = () => {
           clearTimeout(timeout);
-          if (aiContent) {
+          if (aiContent && !resolved) {
+            resolved = true;
             messages.push({ role: 'bot', content: aiContent });
             renderMessages();
           }

@@ -1,4 +1,5 @@
 """政务 Agent — 校园事务问答、流程编排、申请模板生成"""
+from typing import AsyncGenerator
 from .base_agent import BaseAgent
 from .schemas import AgentMessage, AgentType
 
@@ -7,12 +8,17 @@ class AffairsAgent(BaseAgent):
     agent_type = AgentType.AFFAIRS
 
     def _handle(self, message: AgentMessage) -> str:
-        intent = message.intent or "query"
-        content = message.content
-        context = message.context
+        messages = self._build_messages(message)
+        return self._call_llm(messages)
 
-        # 从 context 中获取知识库参考信息
-        kb_context = context.get("kb_context", "")
+    async def execute_stream(self, message: AgentMessage) -> AsyncGenerator[str, None]:
+        messages = self._build_messages(message)
+        async for token in self._call_llm_stream(messages):
+            yield token
+
+    def _build_messages(self, message: AgentMessage) -> list[dict]:
+        intent = message.intent or "query"
+        kb_context = message.context.get("kb_context", "")
 
         if intent == "template":
             system_prompt = (
@@ -37,6 +43,5 @@ class AffairsAgent(BaseAgent):
         messages = [{"role": "system", "content": system_prompt}]
         if message.history:
             messages.extend(message.history[-5:])
-        messages.append({"role": "user", "content": content})
-
-        return self._call_llm(messages)
+        messages.append({"role": "user", "content": message.content})
+        return messages

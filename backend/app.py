@@ -9,6 +9,7 @@ from config import SECRET_KEY, DEBUG, MAX_CONTENT_LENGTH, CORS_ORIGINS
 from routes.academic import academic_bp
 from routes.affairs import affairs_bp
 from routes.growth import growth_bp
+from routes.upload_route import upload_bp
 
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
@@ -29,6 +30,7 @@ CORS(app, resources={r"/api/*": {"origins": CORS_ORIGINS}})
 from routes.academic import academic_bp
 from routes.affairs import affairs_bp
 from routes.growth import growth_bp
+from routes.upload_route import upload_bp
 
 # 统一 Agent 路由接口
 from flask import Blueprint, request, jsonify
@@ -76,6 +78,7 @@ def agent_chat():
 app.register_blueprint(academic_bp)
 app.register_blueprint(affairs_bp)
 app.register_blueprint(growth_bp)
+app.register_blueprint(upload_bp)
 app.register_blueprint(agent_bp)
 
 
