@@ -1,9 +1,23 @@
 import paramiko
+import sys
 import time
+import os
+
+# SSH credentials from environment variables (never hardcode passwords)
+import os
+
+ssh_host = os.getenv("SERVER_HOST", "123.56.84.160")
+ssh_user = os.getenv("SERVER_USER", "root")
+ssh_password = os.getenv("SERVER_PASSWORD", "")
+
+if not ssh_password:
+    print("ERROR: SERVER_PASSWORD environment variable not set")
+    print("Usage: export SERVER_PASSWORD='your_password' && python upload_all.py")
+    sys.exit(1)
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('123.56.84.160', username='root', password='lsjhappy123..', timeout=30)
+ssh.connect(ssh_host, username=ssh_user, password=ssh_password, timeout=30)
 
 sftp = ssh.open_sftp()
 

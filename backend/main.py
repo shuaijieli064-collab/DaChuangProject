@@ -12,7 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, H
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from fastapi import Body
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -33,9 +34,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 初始化 Agent 引擎
-_llm_fn = None
-_llm_fn_stream = None
-if AI_API_KEY:
+if not AI_API_KEY:
+    logger.warning("AI_API_KEY 未配置，将使用 mock 回复。请在 .env 文件中配置 AI_API_KEY。")
+
+    def _llm_fn(messages: list[dict]) -> str:
+        return "[AI_API_KEY 未配置]"
+
+    async def _llm_fn_stream(messages: list[dict]):
+        yield "[AI_API_KEY 未配置]"
+else:
     def _llm_fn(messages: list[dict]) -> str:
         return chat_completion(messages)
 
@@ -59,6 +66,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if CORS_ORIGINS == "*":
+    logger.warning(
+        "CORS 配置为允许所有来源 (*)。生产环境请在 .env 中配置 CORS_ORIGINS "
+        "指定具体域名，如: CORS_ORIGINS=https://yourdomain.com"
+    )
 
 # ---- Pydantic Models ----
 
@@ -212,7 +225,7 @@ async def study_plan(req: StudyPlanRequest):
 
 
 @app.post("/api/academic/literature-review")
-async def literature_review(req: dict = {}):
+async def literature_review(req: dict = Body(default_factory=dict)):
     topic = req.get("topic", "").strip()
     field = req.get("field", "").strip()
     if not topic:
@@ -227,7 +240,7 @@ async def literature_review(req: dict = {}):
 
 
 @app.post("/api/academic/lab-report")
-async def lab_report(req: dict = {}):
+async def lab_report(req: dict = Body(default_factory=dict)):
     experiment = req.get("experiment", "").strip()
     purpose = req.get("purpose", "").strip()
     method = req.get("method", "").strip()
@@ -249,7 +262,7 @@ async def lab_report(req: dict = {}):
 
 
 @app.post("/api/academic/wrong-questions")
-async def wrong_questions(req: dict = {}):
+async def wrong_questions(req: dict = Body(default_factory=dict)):
     questions = req.get("questions", "").strip()
     subject = req.get("subject", "").strip()
     if not questions:
@@ -481,12 +494,21 @@ async def websocket_chat(websocket: WebSocket):
             # 使用流式输出
             async def stream_response():
                 full_content = ""
+                max_content_len = 50000  # 50KB 最大回复
                 async for token in agent_engine.process_stream(
                     content=message[:MAX_QUERY_LENGTH],
                     history=history,
                     intent=intent or None,
                 ):
                     full_content += token
+                    if len(full_content) > max_content_len:
+                        full_content = full_content[:max_content_len] + "\n\n[回复已截断，内容过长]"
+                        await websocket.send_json({
+                            "type": "chunk",
+                            "content": "\n\n[回复已截断，内容过长]",
+                            "done": False,
+                        })
+                        break
                     await websocket.send_json({
                         "type": "chunk",
                         "content": token,
@@ -521,8 +543,9 @@ async def asyncio_sleep(seconds: float):
 # ---- 静态文件和 SPA ----
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+_frontend_available = os.path.isdir(FRONTEND_DIR)
 
-if os.path.isdir(FRONTEND_DIR):
+if _frontend_available:
     app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 
     @app.get("/", response_class=HTMLResponse)
@@ -534,11 +557,23 @@ if os.path.isdir(FRONTEND_DIR):
         return HTMLResponse(content="<h1>智链校园 2.0</h1><p>前端文件未找到</p>")
 
 
-# ---- 错误处理 ----
+def _make_404_handler():
+    """生成 404 处理器，避免 serve_frontend 未定义时引用错误"""
+    if _frontend_available:
+        async def handler_with_frontend(request, exc):
+            from fastapi.responses import JSONResponse
+            if request.url.path.startswith("/api/"):
+                return JSONResponse({"error": "接口不存在"}, status_code=404)
+            return await serve_frontend()
+        return handler_with_frontend
+    else:
+        async def handler_no_frontend(request, exc):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": "接口不存在" if request.url.path.startswith("/api/") else "页面未找到"}, status_code=404)
+        return handler_no_frontend
+
 
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
-    if request.url.path.startswith("/api/"):
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"error": "接口不存在"}, status_code=404)
-    return await serve_frontend()
+    handler = _make_404_handler()
+    return await handler(request, exc)
