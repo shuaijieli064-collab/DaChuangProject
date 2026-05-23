@@ -184,3 +184,12 @@ class _InMemoryStore:
 
     def has_collection(self, name):
         return name in self._data
+
+    def ensure_collection(self, dimension: int = 1024):
+        """No-op for in-memory store — collections are created on insert"""
+        pass
+
+    def create_collection(self, collection_name, **kwargs):
+        """No-op for in-memory store"""
+        if collection_name not in self._data:
+            self._data[collection_name] = {}
