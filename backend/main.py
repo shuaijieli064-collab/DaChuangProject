@@ -50,7 +50,7 @@ else:
         async for token in chat_completion_stream(messages):
             yield token
 
-agent_engine = AgentEngine(llm_fn=_llm_fn, llm_fn_stream=_llm_fn_stream, use_langgraph=False)
+agent_engine = AgentEngine(llm_fn=_llm_fn, llm_fn_stream=_llm_fn_stream)
 
 # FastAPI 应用
 app = FastAPI(

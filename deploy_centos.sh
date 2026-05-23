@@ -5,7 +5,7 @@ set -e
 
 APP_NAME="zhixiaotong"
 APP_DIR="/var/www/zhixiaotong"
-DOMAIN="${DOMAIN:-123.56.84.160}"
+DOMAIN="${DOMAIN:-example.com}"
 
 echo "=========================================="
 echo "智校通 - 服务器部署脚本"
@@ -43,7 +43,7 @@ User=root
 WorkingDirectory=/var/www/zhixiaotong/backend
 Environment="PATH=/var/www/zhixiaotong/venv/bin"
 EnvironmentFile=/var/www/zhixiaotong/.env
-ExecStart=/var/www/zhixiaotong/venv/bin/python app.py
+ExecStart=/var/www/zhixiaotong/venv/bin/uvicorn main:app --host 0.0.0.0 --port 5000
 Restart=always
 
 [Install]
@@ -78,7 +78,7 @@ systemctl restart nginx
 # 开放防火墙端口
 echo "开放��火墙端口..."
 firewall-cmd --permanent --add-port=80/tcp
-firewall-cmd --permanent --add-port=5000/tcp
+# 注意：端口 5000 仅用于 Nginx 内部代理，不对外暴露
 firewall-cmd --reload
 
 echo ""

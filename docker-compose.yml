@@ -14,19 +14,30 @@ services:
       - ./backend/data:/app/data
       - milvus_data:/app/data/milvus
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - zhilian
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # Redis 缓存
+  # Redis 缓存（仅内部网络访问）
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # 不暴露端口，仅通过内部网络访问
     volumes:
       - redis_data:/data
     networks:
       - zhilian
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # Milvus Lite (通过 API 服务内置)
   # 生产环境可替换为独立 Milvus 服务
@@ -39,7 +50,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - zhilian
 

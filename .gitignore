@@ -1,8 +1,12 @@
 # 智校通项目依赖和构建文件
 backend/__pycache__/
-backend/routes/__pycache__/
 backend/services/__pycache__/
+backend/agents/__pycache__/
+backend/etl/__pycache__/
 backend/.env
+.env
+*.env
+test_api.py
 *.pyc
 *.pyo
 *.pyd

@@ -8,6 +8,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import KNOWLEDGE_BASE_PATH
 
+from collections import Counter
+
 logger = logging.getLogger(__name__)
 
 # ---- 原有 JSON 知识库（fallback） ----
@@ -144,7 +146,24 @@ def _get_rag_chain():
                     embedding_model_name=EMBEDDING_MODEL,
                     milvus_uri=MILVUS_URI,
                 )
-                bm25 = BM25Search()
+
+                # 加载 BM25 索引
+                bm25 = None
+                bm25_path = KNOWLEDGE_BASE_PATH.replace(".json", "_bm25.json")
+                if os.path.exists(bm25_path):
+                    try:
+                        with open(bm25_path, encoding="utf-8") as f:
+                            bm25_data = json.load(f)
+                        bm25 = BM25Search()
+                        bm25._corpus = bm25_data.get("corpus", [])
+                        bm25._doc_freq = Counter(bm25_data.get("doc_freq", {}))
+                        bm25._doc_lengths = bm25_data.get("doc_lengths", [])
+                        logger.info("BM25 索引已加载 (%d 篇)", len(bm25._corpus))
+                    except Exception:
+                        logger.exception("BM25 索引文件损坏，将不使用 BM25")
+                else:
+                    logger.info("BM25 索引不存在，请运行 seed_kb.py 生成")
+
                 _RAG_CHAIN = RAGChain(vector_store=vs, bm25=bm25, top_k=5)
                 logger.info("RAG 链路已初始化")
             else:
@@ -173,4 +192,7 @@ def search_knowledge(query, category=None, top_k=5):
 
     # Fallback 到原有 JSON 检索
     kb_results = search_knowledge_json(query, category)
+    # 为 JSON 结果添加 source 字段以保持一致性
+    for item in kb_results:
+        item.setdefault("source", "campus_knowledge.json")
     return kb_results

@@ -632,6 +632,15 @@
       cursor: not-allowed;
     }
 
+    .send-btn.stop-active {
+      background: var(--rose);
+      color: white;
+    }
+    .send-btn.stop-active:hover {
+      background: #f43f5e;
+      transform: scale(1.05);
+    }
+
     .input-hint {
       font-size: 0.7rem;
       color: var(--text-dim);
@@ -932,6 +941,83 @@
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* ====== COPY BUTTON ====== */
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+    }
+    .msg-bubble:hover ~ .copy-btn,
+    .msg-actions .copy-btn {
+      opacity: 1;
+    }
+    .copy-btn:hover {
+      color: var(--gold);
+      border-color: var(--gold);
+    }
+    .copy-btn.copied {
+      color: var(--green);
+      border-color: var(--green);
+    }
+
+    /* ====== STOP BUTTON ====== */
+    .stop-btn {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px; height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--rose);
+      background: rgba(251, 113, 133, 0.1);
+      color: var(--rose);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .stop-btn:hover {
+      background: rgba(251, 113, 133, 0.2);
+    }
+
+    /* ====== SOURCE CITATIONS ====== */
+    .msg-sources {
+      margin-top: 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .msg-sources summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    .msg-sources summary::marker {
+      content: '📎 ';
+    }
+    .msg-sources ul {
+      list-style: none;
+      padding: 0;
+      margin: 0.25rem 0 0;
+    }
+    .msg-sources li {
+      padding: 0.2rem 0;
+      opacity: 0.7;
     }
 
     /* ====== RESPONSIVE ====== */
@@ -1435,6 +1521,7 @@
     let currentAgent = 'general';
     let messages = [];
     let isStreaming = false;
+    let currentWs = null;  // 当前 WebSocket 连接，用于停止
 
     const quickItems = {
       affairs: [
@@ -2034,10 +2121,29 @@
 
         const avatarIcon = msg.role === 'bot' ? '🔗' : '👤';
 
-        div.innerHTML = `
-          <div class="msg-avatar-icon">${avatarIcon}</div>
-          <div class="msg-bubble">${formatContent(msg.content)}</div>
-        `;
+        if (msg.role === 'bot') {
+          const sourcesHtml = msg.sources && msg.sources.length > 0
+            ? `<details class="msg-sources"><summary>引用来源 (${msg.sources.length})</summary><ul>${
+                msg.sources.map(s => `<li>${s.source ? `[${s.source}] ` : ''}${s.content.substring(0, 120)}${s.content.length > 120 ? '…' : ''}</li>`).join('')
+              }</ul></details>`
+            : '';
+          const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+          div.innerHTML = `
+            <div class="msg-avatar-icon">${avatarIcon}</div>
+            <div style="position:relative">
+              <div class="msg-bubble" id="${msgId}">${formatContent(msg.content)}</div>
+              <button class="msg-actions copy-btn" onclick="copyMessage('${msgId}')" title="复制">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              </button>
+              ${sourcesHtml}
+            </div>
+          `;
+        } else {
+          div.innerHTML = `
+            <div class="msg-avatar-icon">${avatarIcon}</div>
+            <div class="msg-bubble">${formatContent(msg.content)}</div>
+          `;
+        }
         container.appendChild(div);
       }
 
@@ -2145,6 +2251,37 @@
       if (el) el.remove();
     }
 
+    // ====== COPY & STOP ======
+    async function copyMessage(msgId) {
+      const el = document.getElementById(msgId);
+      if (!el) return;
+      const text = el.innerText || el.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = el.parentElement.querySelector('.copy-btn');
+        if (btn) {
+          btn.classList.add('copied');
+          btn.title = '已复制';
+          btn.innerHTML = '✓';
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.title = '复制';
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+          }, 1500);
+        }
+      } catch {}
+    }
+
+    function stopStreaming() {
+      if (currentWs) {
+        currentWs.close();
+        currentWs = null;
+      }
+      hideTyping();
+      isStreaming = false;
+      updateSendBtn();
+    }
+
     // ====== ACTIONS ======
     function toggleDrawer() {
       document.querySelector('.sidebar').classList.toggle('open');
@@ -2156,7 +2293,12 @@
     }
 
     function switchAgent(agent, el) {
+      // 保存当前 agent 的消息
+      saveMessages();
       currentAgent = agent;
+      // 加载新 agent 的消息
+      messages = [];
+      loadMessages();
 
       // Update sidebar cards
       document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
@@ -2177,11 +2319,26 @@
 
       closeDrawer();
       renderQuickGrid();
+      renderMessages();
     }
 
     function newChat() {
       messages = [];
+      saveMessages();
       renderMessages();
+    }
+
+    function saveMessages() {
+      try {
+        localStorage.setItem('chat_' + currentAgent, JSON.stringify(messages));
+      } catch {}
+    }
+
+    function loadMessages() {
+      try {
+        const data = localStorage.getItem('chat_' + currentAgent);
+        if (data) messages = JSON.parse(data);
+      } catch {}
     }
 
     function sendQuick(text) {
@@ -2223,6 +2380,7 @@
         const ws = new WebSocket(
           `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat`
         );
+        currentWs = ws;
 
         const timeout = setTimeout(() => {
           ws.close();
@@ -2248,7 +2406,11 @@
               ws.close();
               if (!resolved) {
                 resolved = true;
-                messages.push({ role: 'bot', content: aiContent || data.content });
+                const botMsg = { role: 'bot', content: aiContent || data.content };
+                // 附带来源信息
+                if (data.sources) botMsg.sources = data.sources;
+                messages.push(botMsg);
+                saveMessages();
                 renderMessages();
               }
               resolve();
@@ -2271,9 +2433,11 @@
 
         ws.onclose = () => {
           clearTimeout(timeout);
+          currentWs = null;
           if (aiContent && !resolved) {
             resolved = true;
             messages.push({ role: 'bot', content: aiContent });
+            saveMessages();
             renderMessages();
           }
           resolve();
@@ -2292,10 +2456,12 @@
         hideTyping();
         const result = data.result || '请求失败，请重试';
         messages.push({ role: 'bot', content: result });
+        saveMessages();
         renderMessages();
       } catch {
         hideTyping();
         messages.push({ role: 'bot', content: '网络错误，请稍后重试。' });
+        saveMessages();
         renderMessages();
       }
     }
@@ -2340,12 +2506,26 @@
     function updateSendBtn() {
       const input = document.getElementById('chatInput');
       const btn = document.getElementById('sendBtn');
-      btn.disabled = !input.value.trim() || isStreaming;
+      if (isStreaming) {
+        btn.disabled = false;
+        btn.classList.add('stop-active');
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+        btn.onclick = stopStreaming;
+        btn.title = '停止生成';
+      } else {
+        btn.classList.remove('stop-active');
+        btn.disabled = !input.value.trim();
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+        btn.onclick = sendMessage;
+        btn.title = '发送';
+      }
     }
 
     document.getElementById('chatInput').addEventListener('input', updateSendBtn);
 
     // ====== INIT ======
+    loadMessages();
+    renderMessages();
     renderQuickGrid();
   </script>
 </body>

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # AI API 配置（兼容 OpenAI 接口标准）
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_API_BASE = os.getenv("AI_API_BASE", "https://api.openai.com/v1")
-AI_MODEL = os.getenv("AI_MODEL", "gpt-3.5-turbo")
+AI_MODEL = os.getenv("AI_MODEL", "qwen-turbo")
 try:
     AI_TIMEOUT_SECONDS = max(5, int(os.getenv("AI_TIMEOUT_SECONDS", "30")))
 except ValueError:
